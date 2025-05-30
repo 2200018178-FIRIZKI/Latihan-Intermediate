@@ -1,0 +1,89 @@
+// File: src/scripts/pages/story-detail/story-detail-presenter.js
+
+export default class StoryDetailPresenter {
+  #view;
+  #model; // Ini akan menjadi alias untuk file api.js Anda (misalnya, StoryAPI)
+  #storyId; // ID cerita yang akan diambil detailnya
+
+  constructor({ view, model, storyId }) {
+    this.#view = view;
+    this.#model = model;
+    this.#storyId = storyId;
+
+    if (!this.#storyId) {
+      console.error('StoryDetailPresenter: storyId is required for fetching details.');
+      // Anda bisa langsung memanggil view.displayError dari sini jika ID tidak ada,
+      // meskipun view juga sudah melakukan pengecekan awal.
+      // this.#view.displayError('Tidak ada ID cerita yang diberikan.');
+    }
+  }
+
+  /**
+   * Mengambil detail cerita dari API dan memberitahu view untuk menampilkannya.
+   */
+  async fetchStoryDetail() {
+    if (!this.#storyId) {
+      if (typeof this.#view.displayError === 'function') {
+        this.#view.displayError('Tidak dapat memuat cerita karena ID tidak ditemukan.');
+      }
+      return;
+    }
+
+    // 1. Tampilkan loading di View
+    if (typeof this.#view.showLoading === 'function') {
+      this.#view.showLoading();
+    } else {
+      console.error('StoryDetailPresenter: this.#view.showLoading is not a function.');
+    }
+
+    try {
+      // 2. Panggil fungsi API untuk mendapatkan detail cerita berdasarkan ID.
+      // Pastikan 'getStoryById' adalah nama fungsi yang benar di file api.js Anda
+      // yang melakukan GET /stories/:id dan menyertakan token jika perlu.
+      const response = await this.#model.getStoryById(this.#storyId);
+
+      // Lakukan pengecekan dasar pada respons
+      if (!response || typeof response.ok === 'undefined') {
+        console.error('StoryDetailPresenter: Invalid response from API when fetching story detail:', response);
+        throw new Error('Respons tidak valid dari API saat mengambil detail cerita.');
+      }
+
+      if (!response.ok) {
+        // Jika API mengembalikan status error (misalnya, cerita tidak ditemukan, masalah server)
+        console.error('StoryDetailPresenter: Failed to fetch story detail (API response not OK):', response);
+        if (typeof this.#view.displayError === 'function') {
+          this.#view.displayError(response.message || 'Gagal memuat detail cerita.');
+        }
+        return; // Hentikan eksekusi lebih lanjut jika gagal
+      }
+
+      // Jika berhasil dan ada objek 'story' di dalam respons
+      if (response.story) {
+        if (typeof this.#view.displayStoryDetail === 'function') {
+          this.#view.displayStoryDetail(response.story);
+        } else {
+          console.error('StoryDetailPresenter: this.#view.displayStoryDetail is not a function.');
+        }
+      } else {
+        // Jika respons.ok true tapi tidak ada objek 'story' (seharusnya tidak terjadi untuk API yang benar)
+        console.error('StoryDetailPresenter: Story data missing in successful API response:', response);
+        if (typeof this.#view.displayError === 'function') {
+          this.#view.displayError('Data detail cerita tidak ditemukan dalam respons server.');
+        }
+      }
+
+    } catch (error) { // Menangkap error jaringan atau error JavaScript lainnya
+      console.error('StoryDetailPresenter: Unexpected error fetching story detail:', error);
+      if (typeof this.#view.displayError === 'function') {
+        this.#view.displayError(error.message || 'Terjadi kesalahan saat mengambil detail cerita.');
+      }
+    } finally {
+      // 3. Selalu sembunyikan loading di View, apapun hasilnya
+      if (typeof this.#view.hideLoading === 'function') {
+        this.#view.hideLoading();
+      } else {
+        console.error('StoryDetailPresenter: this.#view.hideLoading is not a function.');
+      }
+    }
+  }
+}
